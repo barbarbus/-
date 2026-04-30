@@ -1,0 +1,24 @@
+# Build outputs / generated files
+**/build/
+**/obj/
+**/*.o
+**/*.d
+**/*.a
+**/*.so
+**/*.out
+**/*.elf
+**/*.bin
+**/*.img
+**/*.log
+**/*.tmp
+
+# Editor/OS noise
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# If present, ignore nested git metadata (we will delete navy-apps/.git anyway)
+**/.git/
