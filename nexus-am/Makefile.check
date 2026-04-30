@@ -4,7 +4,9 @@ ifeq ($(AM_HOME),) # AM_HOME must exist
 $(error Environment variable AM_HOME must be defined.)
 endif
 
-ARCH ?= native
+# For PA2 with NEMU, we build for x86-nemu by default.
+# You can override it via `make ARCH=native` etc.
+ARCH ?= x86-nemu
 ARCHS = $(shell ls $(AM_HOME)/am/arch/)
 
 ifeq ($(filter $(ARCHS), $(ARCH)), ) # ARCH must be valid

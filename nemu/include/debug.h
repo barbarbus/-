@@ -6,18 +6,15 @@
 
 #ifdef DEBUG
 extern FILE* log_fp;
-#	define Log_write(format, ...) \
+# define Log_write(format, ...) \
   do { \
     if (log_fp != NULL) { \
       fprintf(log_fp, format, ## __VA_ARGS__); \
       fflush(log_fp); \
     } \
   } while (0)
-#else
-#	define Log_write(format, ...)
-#endif
 
-#define Log(format, ...) \
+# define Log(format, ...) \
   do { \
     fprintf(stdout, "\33[1;34m[%s,%d,%s] " format "\33[0m\n", \
         __FILE__, __LINE__, __func__, ## __VA_ARGS__); \
@@ -25,6 +22,10 @@ extern FILE* log_fp;
     Log_write("[%s,%d,%s] " format "\n", \
         __FILE__, __LINE__, __func__, ## __VA_ARGS__); \
   } while (0)
+#else
+# define Log_write(format, ...) do { } while (0)
+# define Log(format, ...) do { } while (0)
+#endif
 
 #define Assert(cond, ...) \
   do { \

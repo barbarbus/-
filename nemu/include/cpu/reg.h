@@ -40,6 +40,7 @@ typedef struct {
   };
 
   vaddr_t eip;
+  uint32_t eflags;
 
 } CPU_state;
 
