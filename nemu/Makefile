@@ -8,6 +8,14 @@ include Makefile.git
 
 .DEFAULT_GOAL = app
 
+# If we're not inside a git repo (common on /mnt/hgfs shared folders),
+# skip the tracer git commits to avoid errors and overhead.
+ifeq ($(shell git rev-parse --is-inside-work-tree 2>/dev/null),true)
+else
+define git_commit
+endef
+endif
+
 # Compilation flags
 CC = gcc
 LD = gcc

@@ -32,13 +32,18 @@ static inline make_DopHelper(SI) {
 
   op->type = OP_TYPE_IMM;
 
-  /* TODO: Use instr_fetch() to read `op->width' bytes of memory
-   * pointed by `eip'. Interpret the result as a signed immediate,
-   * and assign it to op->simm.
-   *
-   op->simm = ???
-   */
-  TODO();
+  /* 读取 op->width 字节的立即数，按有符号数解释 */
+  uint32_t imm = instr_fetch(eip, op->width);
+  
+  if (op->width == 1) {
+    /* 8 位立即数需要符号扩展到 32 位
+     * (int8_t) 转换会自动将高位扩展为符号位
+     */
+    op->simm = (int8_t)imm;
+  } else {
+    /* 32 位立即数直接作为有符号整数 */
+    op->simm = (int32_t)imm;
+  }
 
   rtl_li(&op->val, op->simm);
 
@@ -132,6 +137,31 @@ make_DHelper(lea_M2G) {
   decode_op_rm(eip, id_src, false, id_dest, false);
 }
 
+/* movzx/movsx: the source width is encoded in opcode */
+make_DHelper(movzx_Eb2G) {
+  id_src->width = 1;
+  id_dest->width = decoding.is_operand_size_16 ? 2 : 4;
+  decode_op_rm(eip, id_src, true, id_dest, false);
+}
+
+make_DHelper(movzx_Ew2G) {
+  id_src->width = 2;
+  id_dest->width = decoding.is_operand_size_16 ? 2 : 4;
+  decode_op_rm(eip, id_src, true, id_dest, false);
+}
+
+make_DHelper(movsx_Eb2G) {
+  id_src->width = 1;
+  id_dest->width = decoding.is_operand_size_16 ? 2 : 4;
+  decode_op_rm(eip, id_src, true, id_dest, false);
+}
+
+make_DHelper(movsx_Ew2G) {
+  id_src->width = 2;
+  id_dest->width = decoding.is_operand_size_16 ? 2 : 4;
+  decode_op_rm(eip, id_src, true, id_dest, false);
+}
+
 /* AL <- Ib
  * eAX <- Iv
  */
@@ -193,6 +223,13 @@ make_DHelper(gp7_E) {
 
 /* used by test in group3 */
 make_DHelper(test_I) {
+  decode_op_I(eip, id_src, true);
+}
+
+/* used by `test r/m, imm` (including group3 /0) */
+make_DHelper(EI) {
+  decode_op_rm(eip, id_dest, true, NULL, false);
+  id_src->width = id_dest->width;
   decode_op_I(eip, id_src, true);
 }
 

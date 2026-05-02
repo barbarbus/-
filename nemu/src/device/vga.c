@@ -15,15 +15,21 @@ static SDL_Renderer *renderer;
 static SDL_Texture *texture;
 
 static uint32_t (*vmem) [SCREEN_W];
+static bool vga_dirty = false;
 
 void vga_vmem_io_handler(paddr_t addr, int len, bool is_write) {
+  if (is_write) {
+    vga_dirty = true;
+  }
 }
 
 void update_screen() {
+  if (!vga_dirty) return;
   SDL_UpdateTexture(texture, NULL, vmem, SCREEN_W * sizeof(vmem[0][0]));
   SDL_RenderClear(renderer);
   SDL_RenderCopy(renderer, texture, NULL, NULL);
   SDL_RenderPresent(renderer);
+  vga_dirty = false;
 }
 
 void init_vga() {

@@ -5,6 +5,18 @@ make_EHelper(nop) {
   print_asm("nop");
 }
 
+make_EHelper(clc) {
+  rtl_li(&t0, 0);
+  rtl_set_CF(&t0);
+  print_asm("clc");
+}
+
+make_EHelper(stc) {
+  rtl_li(&t0, 1);
+  rtl_set_CF(&t0);
+  print_asm("stc");
+}
+
 make_EHelper(inv) {
   /* invalid opcode */
 
