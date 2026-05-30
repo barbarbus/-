@@ -31,7 +31,8 @@ int main() {
   init_fs();
 
   Log("Loading user programs...");
-  /* PA3-3 验收 /dev/events：测 t 时钟事件与 kd/ku 按键；通过后改回 PA4 三进程 */
+  /* PA3-3 验收 /dev/events：请先点击 NEMU 模拟器窗口再按键（勿在终端打字） */
+  Log(">>> /dev/events test: click NEMU window, then press keys (Return/A/...) <<<");
   load_prog("/bin/events");
   // load_prog("/bin/pal");
   // load_prog("/bin/hello");

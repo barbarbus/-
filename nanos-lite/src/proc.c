@@ -39,6 +39,9 @@ void load_prog(const char *filename) {
 }
 
 void switch_game(void) {
+  if (nr_proc < 3) {
+    return;
+  }
   assert(nr_proc >= 3);
   if (current_game == &pcb[0]) {
     current_game = &pcb[2];
