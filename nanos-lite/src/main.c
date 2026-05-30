@@ -31,8 +31,8 @@ int main() {
   init_fs();
 
   Log("Loading user programs...");
-  /* PA3-3 验收：先测 bmptest（Logo），通过后可改为 load_prog("/bin/events") 测输入 */
-  load_prog("/bin/bmptest");
+  /* PA3-3 验收 /dev/events：测 t 时钟事件与 kd/ku 按键；通过后改回 PA4 三进程 */
+  load_prog("/bin/events");
   // load_prog("/bin/pal");
   // load_prog("/bin/hello");
   // load_prog("/bin/videotest");
