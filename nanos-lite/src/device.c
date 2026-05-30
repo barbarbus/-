@@ -26,11 +26,9 @@ size_t events_read(void *buf, size_t len) {
       snprintf(evtbuf, sizeof(evtbuf), "%s %s\n",
           is_keydown ? "kd" : "ku", keyname[keycode]);
     } else {
-      /* TEMP: 关闭 t 时钟事件，仅保留 kd/ku；测完键盘后恢复下面 snprintf */
-      return 0;
-#if 0
+      /* _read_key() is non-blocking; emit a timer line so NDL_WaitEvent can
+       * drive the game loop / rendering. */
       snprintf(evtbuf, sizeof(evtbuf), "t %u\n", (unsigned)_uptime());
-#endif
     }
     /* klib's snprintf return value can include the trailing '\0'; use
      * strlen so we never leak a NUL byte through /dev/events. */

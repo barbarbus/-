@@ -27,8 +27,7 @@ extern void update_screen();
 
 static void timer_sig_handler(int signum) {
   jiffy ++;
-  /* TEMP: 关闭时钟中断，/dev/events 键盘测试完再恢复 timer_intr() */
-  // timer_intr();
+  timer_intr();
 
   device_update_flag = true;
   if (jiffy % (TIMER_HZ / VGA_HZ) == 0) {
