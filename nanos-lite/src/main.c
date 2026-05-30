@@ -31,8 +31,8 @@ int main() {
   init_fs();
 
   Log("Loading user programs...");
-  /* PA3-2 验收：仅加载 /bin/text，通过后再恢复下面 PA4 三进程配置 */
-  load_prog("/bin/text");
+  /* PA3-3 验收：先测 bmptest（Logo），通过后可改为 load_prog("/bin/events") 测输入 */
+  load_prog("/bin/bmptest");
   // load_prog("/bin/pal");
   // load_prog("/bin/hello");
   // load_prog("/bin/videotest");
