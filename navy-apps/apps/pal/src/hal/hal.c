@@ -1,0 +1,348 @@
+#include "hal.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <ndl.h>
+
+/* Software primary surface where PAL draws (see video.c SDL1 path). */
+extern SDL_Surface *gpScreen;
+
+#define NR_KEYS 18
+
+#define W 320
+#define H 200
+
+static uint32_t systime;
+static int key_state[128];
+
+void PAL_KeyPressHandler(int);
+void PAL_KeyReleaseHandler(int);
+
+/* Pending key events captured during SDL_Delay. PAL_ReadMenu calls
+ * PAL_ClearKeyState() at the top of every iteration, so any key handled
+ * inside SDL_Delay's polling would be forgotten before the next check.
+ * We buffer non-timer events here and let PAL_PollEvent drain them so the
+ * effect is the same as SDL keeping events in its internal queue. */
+#define EVT_QUEUE_LEN 64
+static NDL_Event evt_queue[EVT_QUEUE_LEN];
+static int evt_head = 0, evt_tail = 0;
+
+static inline int evt_queue_empty(void) { return evt_head == evt_tail; }
+
+static inline void evt_queue_push(NDL_Event e) {
+  int next = (evt_tail + 1) % EVT_QUEUE_LEN;
+  if (next == evt_head) {
+    /* Queue full; drop oldest to keep the most recent input. */
+    evt_head = (evt_head + 1) % EVT_QUEUE_LEN;
+  }
+  evt_queue[evt_tail] = e;
+  evt_tail = next;
+}
+
+static inline int evt_queue_pop(NDL_Event *out) {
+  if (evt_queue_empty()) return 0;
+  *out = evt_queue[evt_head];
+  evt_head = (evt_head + 1) % EVT_QUEUE_LEN;
+  return 1;
+}
+
+static void update_systime_from_timer(int32_t data) {
+  uint32_t t = (uint32_t)data;
+  if (t <= systime) {
+    t = systime + 1u;
+  }
+  systime = t;
+}
+
+static int dispatch_key_event(NDL_Event evt) {
+  if (evt.type != NDL_EVENT_KEYUP && evt.type != NDL_EVENT_KEYDOWN) {
+    return 0;
+  }
+  int key = -1, kd = (evt.type == NDL_EVENT_KEYDOWN);
+  switch (evt.data) {
+    case NDL_SCANCODE_UP:        key = K_UP; break;
+    case NDL_SCANCODE_DOWN:      key = K_DOWN; break;
+    case NDL_SCANCODE_LEFT:      key = K_LEFT; break;
+    case NDL_SCANCODE_RIGHT:     key = K_RIGHT; break;
+    case NDL_SCANCODE_RETURN:    key = K_RETURN; break;
+    case NDL_SCANCODE_SPACE:     key = K_SPACE; break;
+    case NDL_SCANCODE_ESCAPE:    key = K_ESCAPE; break;
+    case NDL_SCANCODE_PAGEUP:    key = K_PAGEUP; break;
+    case NDL_SCANCODE_PAGEDOWN:  key = K_PAGEDOWN; break;
+    case NDL_SCANCODE_R:         key = K_r; break;
+    case NDL_SCANCODE_A:         key = K_a; break;
+    case NDL_SCANCODE_D:         key = K_d; break;
+    case NDL_SCANCODE_E:         key = K_e; break;
+    case NDL_SCANCODE_W:         key = K_w; break;
+    case NDL_SCANCODE_Q:         key = K_q; break;
+    case NDL_SCANCODE_S:         key = K_s; break;
+    case NDL_SCANCODE_F:         key = K_f; break;
+    case NDL_SCANCODE_P:         key = K_p; break;
+  }
+  if (key != -1 && key_state[key] != kd) {
+    key_state[key] = kd;
+    if (kd) PAL_KeyPressHandler(key);
+    else    PAL_KeyReleaseHandler(key);
+  }
+  return 1;
+}
+
+int
+PAL_PollEvent(
+   SDL_Event *event
+)
+{
+  NDL_Event evt;
+
+  /* Drain any events that SDL_Delay buffered first so the menu loop sees
+   * key presses that happened during the throttle window. */
+  if (evt_queue_pop(&evt)) {
+    return dispatch_key_event(evt) ? 1 : 0;
+  }
+
+  NDL_WaitEvent(&evt);
+  if (evt.type == NDL_EVENT_TIMER) {
+    update_systime_from_timer(evt.data);
+    return 0;
+  }
+
+  return dispatch_key_event(evt) ? 1 : 0;
+}
+
+void SDL_WaitUntil(uint32_t tick) {
+  while (systime < tick) {
+    NDL_Event evt;
+    NDL_WaitEvent(&evt);
+    if (evt.type == NDL_EVENT_TIMER) {
+      update_systime_from_timer(evt.data);
+    } else {
+      /* Save for the next PAL_PollEvent so the key isn't silently consumed. */
+      evt_queue_push(evt);
+    }
+  }
+}
+
+uint32_t SDL_GetTicks() {
+  return systime;
+}
+
+void SDL_Delay(uint32_t ms) {
+  if (ms == 0) {
+    return;
+  }
+  uint32_t until = SDL_GetTicks() + ms;
+  SDL_WaitUntil(until);
+}
+
+static uint8_t vmem[W * H];
+static uint32_t fb[W * H];
+static intptr_t VMEM_ADDR = (intptr_t)&vmem[0];
+
+static uint32_t palette[256];
+
+static void redraw(void) {
+  const uint8_t *idxbuf;
+  int pitch = W;
+
+  /* Game renders into gpScreen (malloc); vmem is only used for HWSURFACE
+   * surfaces. Reading vmem here leaves the framebuffer all zeros → black. */
+  if (gpScreen != NULL && gpScreen->pixels != NULL &&
+      (gpScreen->flags & SDL_HWSURFACE) == 0) {
+    idxbuf = (const uint8_t *)gpScreen->pixels;
+    pitch = gpScreen->pitch;
+  } else {
+    idxbuf = vmem;
+  }
+
+  for (int j = 0; j < H; j++) {
+    for (int i = 0; i < W; i++) {
+      fb[i + j * W] = palette[idxbuf[i + j * pitch]];
+    }
+  }
+
+  NDL_DrawRect(fb, 0, 0, W, H);
+  NDL_Render();
+}
+
+void SDL_BlitSurface(SDL_Surface *src, SDL_Rect *srcrect, 
+    SDL_Surface *dst, SDL_Rect *dstrect) {
+  assert(dst && src);
+
+  int sx = (srcrect == NULL ? 0 : srcrect->x);
+  int sy = (srcrect == NULL ? 0 : srcrect->y);
+  int dx = (dstrect == NULL ? 0 : dstrect->x);
+  int dy = (dstrect == NULL ? 0 : dstrect->y);
+  int w = (srcrect == NULL ? src->w : srcrect->w);
+  int h = (srcrect == NULL ? src->h : srcrect->h);
+  if(dst->w - dx < w) { w = dst->w - dx; }
+  if(dst->h - dy < h) { h = dst->h - dy; }
+  if(dstrect != NULL) {
+    dstrect->w = w;
+    dstrect->h = h;
+  }
+
+  /* copy pixels from position (`sx', `sy') with size
+   * `w' X `h' of `src' surface to position (`dx', `dy') of
+   * `dst' surface.
+   */
+
+  //fprintf(stderr, "(%d, %d) -> (%d, %d), %d x %d\n", sx, sy, dx, dy, w, h);
+  for (int i = 0; i < w; i ++)
+    for (int j = 0; j < h; j ++) {
+      uint8_t idx = src->pixels[(sx + i) + (sy + j) * src->w];
+      dst->pixels[(dx + i) + (dy + j) * dst->w] = idx;
+    }
+}
+
+void SDL_FillRect(SDL_Surface *dst, SDL_Rect *dstrect, uint32_t color) {
+  assert(dst);
+  assert(color <= 0xff);
+
+  int dx = (dstrect == NULL ? 0 : dstrect->x);
+  int dy = (dstrect == NULL ? 0 : dstrect->y);
+  int w = (dstrect == NULL ? dst->w : dstrect->w);
+  int h = (dstrect == NULL ? dst->h : dstrect->h);
+  if(dst->w - dx < w) { w = dst->w - dx; }
+  if(dst->h - dy < h) { h = dst->h - dy; }
+
+  // TODO: color is uint32_t, what about palette?
+  for (int i = 0; i < w; i ++)
+    for (int j = 0; j < h; j ++) {
+      dst->pixels[(dx + i) + (dy + j) * dst->w] = color;
+    }
+
+  /* Fill the rectangle area described by `dstrect'
+   * in surface `dst' with color `color'. If dstrect is
+   * NULL, fill the whole surface.
+   */
+}
+
+void SDL_SetPalette(SDL_Surface *s, int flags, SDL_Color *colors, 
+    int firstcolor, int ncolors) {
+  assert(s);
+  assert(s->format);
+  assert(s->format->palette);
+  assert(firstcolor == 0);
+
+  if(s->format->palette->colors == NULL || s->format->palette->ncolors != ncolors) {
+    if(s->format->palette->ncolors != ncolors && s->format->palette->colors != NULL) {
+      /* If the size of the new palette is different 
+       * from the old one, free the old one.
+       */
+      free(s->format->palette->colors);
+    }
+
+    /* Get new memory space to store the new palette. */
+    s->format->palette->colors = malloc(sizeof(SDL_Color) * ncolors);
+    assert(s->format->palette->colors);
+  }
+
+  /* Set the new palette. */
+  s->format->palette->ncolors = ncolors;
+  memcpy(s->format->palette->colors, colors, sizeof(SDL_Color) * ncolors);
+
+  if (ncolors == 256) {
+    for (int i = 0; i < ncolors; i++) {
+      uint8_t r = colors[i].r;
+      uint8_t g = colors[i].g;
+      uint8_t b = colors[i].b;
+      /* ARGB8888 for NEMU/NDL; opaque alpha avoids SDL treating pixels as fully transparent. */
+      palette[i] = 0xFF000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+    }
+  }
+
+  if (s->flags & SDL_HWSURFACE) {
+    assert(ncolors == 256);
+    redraw();
+  }
+}
+
+/* ======== The following functions are already implemented. ======== */
+
+void SDL_UpdateRect(SDL_Surface *screen, int x, int y, int w, int h) {
+  assert(screen);
+  assert(screen->pitch == W);
+
+  // this should always be true in NEMU-PAL
+  assert(screen->flags & SDL_HWSURFACE);
+
+  redraw();
+}
+
+void SDL_SoftStretch(SDL_Surface *src, SDL_Rect *srcrect, 
+    SDL_Surface *dst, SDL_Rect *dstrect) {
+  assert(src && dst);
+  int x = (srcrect == NULL ? 0 : srcrect->x);
+  int y = (srcrect == NULL ? 0 : srcrect->y);
+  int w = (srcrect == NULL ? src->w : srcrect->w);
+  int h = (srcrect == NULL ? src->h : srcrect->h);
+
+  assert(dstrect);
+  if(w == dstrect->w && h == dstrect->h) {
+    /* The source rectangle and the destination rectangle
+     * are of the same size. If that is the case, there
+     * is no need to stretch, just copy. */
+    SDL_Rect rect;
+    rect.x = x;
+    rect.y = y;
+    rect.w = w;
+    rect.h = h;
+    SDL_BlitSurface(src, &rect, dst, dstrect);
+  }
+  else {
+    /* No other case occurs in NEMU-PAL. */
+    assert(0);
+  }
+}
+
+SDL_Surface* SDL_CreateRGBSurface(uint32_t flags, int width, int height, int depth,
+    uint32_t Rmask, uint32_t Gmask, uint32_t Bmask, uint32_t Amask) {
+  SDL_Surface *s = malloc(sizeof(SDL_Surface));
+  assert(s);
+  s->format = malloc(sizeof(SDL_PixelFormat));
+  assert(s);
+  s->format->palette = malloc(sizeof(SDL_Palette));
+  assert(s->format->palette);
+  s->format->palette->colors = NULL;
+
+  s->format->BitsPerPixel = depth;
+
+  s->flags = flags;
+  s->w = width;
+  s->h = height;
+  s->pitch = (width * depth) >> 3;
+  s->pixels = (flags & SDL_HWSURFACE ? (void *)VMEM_ADDR : malloc(s->pitch * height));
+  assert(s->pixels);
+
+  return s;
+}
+
+SDL_Surface* SDL_SetVideoMode(int width, int height, int bpp, uint32_t flags) {
+  return SDL_CreateRGBSurface(flags,  width, height, bpp,
+      0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+}
+
+void SDL_FreeSurface(SDL_Surface *s) {
+  if(s != NULL) {
+    if(s->format != NULL) {
+      if(s->format->palette != NULL) {
+        if(s->format->palette->colors != NULL) {
+          free(s->format->palette->colors);
+        }
+        free(s->format->palette);
+      }
+
+      free(s->format);
+    }
+    
+    if(s->pixels != NULL && s->pixels != (void*)VMEM_ADDR) {
+      free(s->pixels);
+    }
+
+    free(s);
+  }
+}
+
+void hal_init() {
+  NDL_OpenDisplay(W, H);
+}
