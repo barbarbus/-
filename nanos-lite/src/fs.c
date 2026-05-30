@@ -53,25 +53,43 @@ int fs_open(const char *pathname, int flags, int mode) {
       return i;
     }
   }
+  Log("fs_open: file '%s' not found", pathname);
   return -1;
+}
+
+size_t fs_filesz(int fd) {
+  assert(!invalid_fd(fd));
+  return file_table[fd].size;
 }
 
 size_t fs_read(int fd, void *buf, size_t len) {
   assert(!invalid_fd(fd));
   Finfo *f = &file_table[fd];
-  assert(f->open_offset >= 0 && f->open_offset <= f->size);
+  assert(f->open_offset >= 0 && (size_t)f->open_offset <= f->size);
 
   switch (fd) {
-    case FD_STDIN: return 0;
-    case FD_EVENTS: return events_read(buf, len);
+    case FD_STDIN:
+    case FD_STDOUT:
+    case FD_STDERR:
+      return 0;
+    case FD_EVENTS:
+      return events_read(buf, len);
     case FD_DISPINFO:
+      if ((size_t)f->open_offset >= f->size) {
+        return 0;
+      }
       if (f->open_offset + len > f->size) {
         len = f->size - f->open_offset;
       }
       dispinfo_read(buf, f->open_offset, len);
       f->open_offset += len;
       return len;
+    case FD_FB:
+      return 0;
     default:
+      if ((size_t)f->open_offset >= f->size) {
+        return 0;
+      }
       if (f->open_offset + len > f->size) {
         len = f->size - f->open_offset;
       }
@@ -84,12 +102,21 @@ size_t fs_read(int fd, void *buf, size_t len) {
 size_t fs_write(int fd, const void *buf, size_t len) {
   assert(!invalid_fd(fd));
   Finfo *f = &file_table[fd];
-  assert(f->open_offset >= 0 && f->open_offset <= f->size);
+  assert(f->open_offset >= 0 && (size_t)f->open_offset <= f->size);
 
   switch (fd) {
+    case FD_STDIN:
+      return 0;
     case FD_STDOUT:
-    case FD_STDERR: return serial_write(buf, len);
+    case FD_STDERR:
+      return serial_write(buf, len);
+    case FD_EVENTS:
+    case FD_DISPINFO:
+      return 0;
     case FD_FB:
+      if ((size_t)f->open_offset >= f->size) {
+        return 0;
+      }
       if (f->open_offset + len > f->size) {
         len = f->size - f->open_offset;
       }
@@ -97,6 +124,9 @@ size_t fs_write(int fd, const void *buf, size_t len) {
       f->open_offset += len;
       return len;
     default:
+      if ((size_t)f->open_offset >= f->size) {
+        return 0;
+      }
       if (f->open_offset + len > f->size) {
         len = f->size - f->open_offset;
       }
@@ -109,19 +139,24 @@ size_t fs_write(int fd, const void *buf, size_t len) {
 off_t fs_lseek(int fd, off_t offset, int whence) {
   assert(!invalid_fd(fd));
   Finfo *f = &file_table[fd];
+  off_t new_offset;
 
   switch (whence) {
-    case SEEK_SET: f->open_offset = offset; break;
-    case SEEK_CUR: f->open_offset += offset; break;
-    case SEEK_END: f->open_offset = f->size + offset; break;
-    default: assert(0);
+    case SEEK_SET: new_offset = offset; break;
+    case SEEK_CUR: new_offset = f->open_offset + offset; break;
+    case SEEK_END: new_offset = (off_t)f->size + offset; break;
+    default: return -1;
   }
 
-  assert(f->open_offset >= 0 && f->open_offset <= f->size);
-  return f->open_offset;
+  if (new_offset < 0 || (size_t)new_offset > f->size) {
+    return -1;
+  }
+  f->open_offset = new_offset;
+  return new_offset;
 }
 
 int fs_close(int fd) {
   assert(!invalid_fd(fd));
+  file_table[fd].open_offset = 0;
   return 0;
 }

@@ -61,12 +61,9 @@ static inline int looks_like_elf32(const Elf32_Ehdr *eh) {
  * while CR3 is kernel: user PTEs may point at different frames than identity map.
  */
 static uintptr_t load_flat_binary(_Protect *as, int fd, uintptr_t *p_brk) {
-  fs_lseek(fd, 0, SEEK_END);
-  off_t sz = fs_lseek(fd, 0, SEEK_CUR);
-  assert(sz >= 0);
+  size_t filesz = fs_filesz(fd);
   fs_lseek(fd, 0, SEEK_SET);
-
-  uint32_t filesz = (uint32_t)sz;
+  assert(filesz > 0);
   uint32_t va0 = rounddown(LOAD_BASE, PGSIZE);
   uint32_t va1 = roundup(LOAD_BASE + filesz, PGSIZE);
   int np = 0;

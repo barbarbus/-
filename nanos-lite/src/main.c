@@ -31,10 +31,11 @@ int main() {
   init_fs();
 
   Log("Loading user programs...");
-  /* pcb[0]=pal, pcb[1]=hello, pcb[2]=videotest；F12 在 pal/videotest 间切换 */
-  load_prog("/bin/pal");
-  load_prog("/bin/hello");
-  load_prog("/bin/videotest");
+  /* PA3-2 验收：仅加载 /bin/text，通过后再恢复下面 PA4 三进程配置 */
+  load_prog("/bin/text");
+  // load_prog("/bin/pal");
+  // load_prog("/bin/hello");
+  // load_prog("/bin/videotest");
 
   /* Enter the first user process; later switches happen in schedule(). */
   init_proc();
