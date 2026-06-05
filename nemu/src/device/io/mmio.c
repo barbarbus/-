@@ -18,10 +18,11 @@ static MMIO_t maps[NR_MAP];
 static int nr_map = 0;
 
 /* Bounding box covering every registered MMIO region. Almost all guest
- * accesses target RAM, so a single range check here lets is_mmio() return
- * immediately without scanning the map list on the hot path. */
-static paddr_t mmio_lbound = (paddr_t)-1;
-static paddr_t mmio_ubound = 0;
+ * accesses target RAM, so a single range check (inlined into paddr_read via
+ * memory.h) lets the hot path skip is_mmio() entirely. Non-static so the
+ * inlined fast path in memory.h can read them. */
+paddr_t mmio_lbound = (paddr_t)-1;
+paddr_t mmio_ubound = 0;
 
 /* device interface */
 void* add_mmio_map(paddr_t addr, int len, mmio_callback_t callback) {

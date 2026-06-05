@@ -12,7 +12,11 @@ include Makefile.git
 CC = gcc
 LD = gcc
 INCLUDES  = $(addprefix -I, $(INC_DIR))
-CFLAGS   += -O2 -MMD -Wall -Werror -ggdb $(INCLUDES)
+# The hot memory path (vaddr_read/paddr_read/is_mmio, ~34% of runtime per perf)
+# is now `static inline` in memory/memory.h so it collapses into each caller.
+# -fno-strict-aliasing keeps the pmem type-punning (*(uint32_t*)(pmem+addr))
+# well-defined now that it is inlined into many translation units.
+CFLAGS   += -O2 -fno-strict-aliasing -MMD -Wall -Werror -ggdb $(INCLUDES)
 
 # Files to be compiled
 SRCS = $(shell find src/ -name "*.c")
@@ -40,7 +44,7 @@ NEMU_EXEC := $(BINARY) $(ARGS)
 $(BINARY): $(OBJS)
 	$(call git_commit, "compile")
 	@echo + LD $@
-	@$(LD) -O2 -o $@ $^ -lSDL2 -lreadline
+	@$(LD) -O2 -fno-strict-aliasing -o $@ $^ -lSDL2 -lreadline
 
 run: $(BINARY)
 	$(call git_commit, "run")
