@@ -134,6 +134,23 @@ void SDL_Delay(uint32_t ms) {
   SDL_WaitUntil(until);
 }
 
+void PAL_DrainEvents(void) {
+  NDL_Event evt;
+
+  for (;;) {
+    while (evt_queue_pop(&evt)) {
+      dispatch_key_event(evt);
+    }
+
+    NDL_WaitEvent(&evt);
+    if (evt.type == NDL_EVENT_TIMER) {
+      update_systime_from_timer(evt.data);
+      return;
+    }
+    dispatch_key_event(evt);
+  }
+}
+
 static uint8_t vmem[W * H];
 static uint32_t fb[W * H];
 static intptr_t VMEM_ADDR = (intptr_t)&vmem[0];

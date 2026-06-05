@@ -319,7 +319,7 @@ PAL_ProcessEvent(
 #ifdef PAL_HAS_NATIVEMIDI
    MIDI_CheckLoop();
 #endif
-   while (PAL_PollEvent(NULL));
+   PAL_DrainEvents();
 }
 
 

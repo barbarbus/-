@@ -616,7 +616,8 @@ PAL_WaitForKey(
    {
       UTIL_Delay(5);
 
-      if (g_InputState.dwKeyPress & (kKeySearch | kKeyMenu))
+      /* Script opcode 0x004D means "any key"; accept arrows as well as Enter. */
+      if (g_InputState.dwKeyPress != 0 || g_InputState.dir != kDirUnknown)
       {
          break;
       }

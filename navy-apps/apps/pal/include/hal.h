@@ -89,6 +89,7 @@ typedef union {
 void SDL_BlitSurface(SDL_Surface *, SDL_Rect *, SDL_Surface *, SDL_Rect *);
 uint32_t SDL_GetTicks();
 void SDL_Delay(uint32_t ms);
+void PAL_DrainEvents(void);
 SDL_Surface* SDL_CreateRGBSurface(uint32_t, int, int, int,
 		uint32_t, uint32_t, uint32_t, uint32_t);
 SDL_Surface* SDL_SetVideoMode(int, int, int, uint32_t);
