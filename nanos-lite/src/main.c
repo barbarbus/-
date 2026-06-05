@@ -31,12 +31,10 @@ int main() {
   init_fs();
 
   Log("Loading user programs...");
-  /* PA3-3 验收 /dev/events：请先点击 NEMU 模拟器窗口再按键（勿在终端打字） */
-  Log(">>> /dev/events test: click NEMU window, then press keys (Return/A/...) <<<");
-  load_prog("/bin/events");
-  // load_prog("/bin/pal");
-  // load_prog("/bin/hello");
-  // load_prog("/bin/videotest");
+  /* pcb[0]=pal, pcb[1]=hello, pcb[2]=videotest；F12 在 pal/videotest 间切换 */
+  load_prog("/bin/pal");
+  load_prog("/bin/hello");
+  load_prog("/bin/videotest");
 
   /* Enter the first user process; later switches happen in schedule(). */
   init_proc();
