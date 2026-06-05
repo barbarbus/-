@@ -58,9 +58,10 @@ static void poll_sdl_events() {
 }
 
 void device_update() {
-  /* Poll keyboard on every cpu step; do not wait for the virtual timer. */
-  poll_sdl_events();
-
+  /* device_update() runs once per guest instruction (see cpu_exec). Only do
+   * real work when the virtual timer has fired, otherwise SDL_PollEvent on
+   * every instruction collapses emulation speed. At TIMER_HZ=200 the keyboard
+   * is still polled 200 times per second, which is plenty responsive. */
   if (!device_update_flag) {
     return;
   }
@@ -70,6 +71,8 @@ void device_update() {
     update_screen();
     update_screen_flag = false;
   }
+
+  poll_sdl_events();
 }
 
 void sdl_clear_event_queue() {
