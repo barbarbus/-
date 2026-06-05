@@ -37,8 +37,12 @@ void cpu_exec(uint64_t n) {
 #endif
 
 #ifdef HAS_IOE
+    /* device_update() does real work only when the virtual timer fired. Check
+     * the flag inline so the common (no-op) case avoids a function call on
+     * every guest instruction. The flag is volatile (set from a signal). */
+    extern volatile int device_update_flag;
     extern void device_update();
-    device_update();
+    if (device_update_flag) { device_update(); }
 #endif
 
     if (nemu_state != NEMU_RUNNING) { return; }

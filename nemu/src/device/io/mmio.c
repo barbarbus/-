@@ -17,6 +17,12 @@ typedef struct {
 static MMIO_t maps[NR_MAP];
 static int nr_map = 0;
 
+/* Bounding box covering every registered MMIO region. Almost all guest
+ * accesses target RAM, so a single range check here lets is_mmio() return
+ * immediately without scanning the map list on the hot path. */
+static paddr_t mmio_lbound = (paddr_t)-1;
+static paddr_t mmio_ubound = 0;
+
 /* device interface */
 void* add_mmio_map(paddr_t addr, int len, mmio_callback_t callback) {
   assert(nr_map < NR_MAP);
@@ -29,11 +35,17 @@ void* add_mmio_map(paddr_t addr, int len, mmio_callback_t callback) {
   maps[nr_map].callback = callback;
   nr_map ++;
   mmio_space_free_index += len;
+
+  if (addr < mmio_lbound) mmio_lbound = addr;
+  if (addr + len - 1 > mmio_ubound) mmio_ubound = addr + len - 1;
   return space_base;
 }
 
 /* bus interface */
 int is_mmio(paddr_t addr) {
+  if (addr < mmio_lbound || addr > mmio_ubound) {
+    return -1;
+  }
   int i;
   for (i = 0; i < nr_map; i ++) {
     if (addr >= maps[i].low && addr <= maps[i].high) {

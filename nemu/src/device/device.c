@@ -15,7 +15,9 @@
 
 static uint64_t jiffy = 0;
 static struct itimerval it;
-static int device_update_flag = false;
+/* Set asynchronously by the SIGVTALRM handler and polled every guest
+ * instruction in cpu_exec(); must be volatile so the hot loop re-reads it. */
+volatile int device_update_flag = false;
 static int update_screen_flag = false;
 
 void init_serial();
