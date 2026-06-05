@@ -28,4 +28,7 @@ FLOAT Fabs(FLOAT);
 FLOAT Fsqrt(FLOAT);
 FLOAT Fpow(FLOAT, FLOAT);
 
+/* Temporary PA5-1 self-test; remove before final submission. */
+void FLOAT_test(void);
+
 #endif
