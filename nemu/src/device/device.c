@@ -6,9 +6,12 @@
 #include <signal.h>
 #include <SDL2/SDL.h>
 
-#define TIMER_HZ 200
-/* How often to push VMEM to the SDL window (per second). Higher = smoother. */
-#define VGA_HZ 200
+#define TIMER_HZ 100
+/* How often to push VMEM to the SDL window (per second). The SDL window is
+ * 800x600 and rendered in software (llvmpipe) under VMware, so each present
+ * is expensive. Cap presents at 50Hz to keep movement responsive; the guest
+ * still composes frames at its own FPS, we just skip redundant presents. */
+#define VGA_HZ 50
 
 static uint64_t jiffy = 0;
 static struct itimerval it;
