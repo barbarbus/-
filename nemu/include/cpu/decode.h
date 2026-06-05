@@ -105,8 +105,10 @@ make_DHelper(gp2_1_E);
 make_DHelper(gp2_cl2E);
 make_DHelper(gp2_Ib2E);
 
-/* Ev <- Gv, Ib : double-precision shift (shld/shrd) */
+/* Ev <- Gv, Ib : double-precision shift (shld/shrd), imm8 count */
 make_DHelper(Ib_G2E);
+/* Ev <- Gv, CL : double-precision shift (shld/shrd), CL count */
+make_DHelper(cl_G2E);
 
 make_DHelper(O2a);
 make_DHelper(a2O);
