@@ -9,15 +9,9 @@ static _RegSet *do_event(_Event e, _RegSet *r) {
       return do_syscall(r);
     case _EVENT_TRAP:
       return schedule(r);
-    case _EVENT_IRQ_TIME: {
-      static int irq_time_tick;
-      irq_time_tick++;
-      /* 前几下必打，之后每 10 次打一行，避免 100Hz 刷屏又容易肉眼确认 */
-      if (irq_time_tick <= 5 || (irq_time_tick % 10) == 0) {
-        Log("EVENT_IRQ_TIME tick %d -> schedule()", irq_time_tick);
-      }
-      return schedule(r);
-    }
+    case _EVENT_IRQ_TIME:
+      /* 单进程跑 PAL 时不抢占调度，避免无意义切换与终端刷屏 */
+      return r;
     default:
       panic("Unhandled event ID = %d", e.event);
   }

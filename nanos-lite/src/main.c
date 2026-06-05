@@ -31,11 +31,8 @@ int main() {
   init_fs();
 
   Log("Loading user programs...");
-  /* pcb[0]=pal, pcb[1]=hello, pcb[2]=videotest；F12 在 pal/videotest 间切换 */
+  /* PA5：仅跑仙剑，关闭 hello/videotest 多进程以减轻卡顿 */
   load_prog("/bin/pal");
-  load_prog("/bin/hello");
-  load_prog("/bin/videotest");
 
-  /* Enter the first user process; later switches happen in schedule(). */
   init_proc();
 }
