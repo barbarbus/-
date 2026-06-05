@@ -70,6 +70,44 @@ make_EHelper(shr) {
   print_asm_template2(shr);
 }
 
+/* SHRD dest, src2, count:
+ *   dest = (dest >> count) | (src2 << (bits - count))
+ * Used by gcc to implement (int64 >> n), e.g. the fixed-point FLOAT mul
+ * `((int64_t)a * b) >> 16`. Shift count is masked to 5 bits like real x86. */
+make_EHelper(shrd) {
+  uint32_t bits = id_dest->width * 8;
+  uint32_t cnt = id_src->val & 0x1f;
+  rtlreg_t res = id_dest->val;
+
+  if (cnt != 0 && cnt < bits) {
+    res = (id_dest->val >> cnt) | (id_src2->val << (bits - cnt));
+  }
+
+  rtl_li(&t2, res);
+  operand_write(id_dest, &t2);
+  rtl_update_ZFSF(&t2, id_dest->width);
+
+  print_asm_template3(shrd);
+}
+
+/* SHLD dest, src2, count:
+ *   dest = (dest << count) | (src2 >> (bits - count)) */
+make_EHelper(shld) {
+  uint32_t bits = id_dest->width * 8;
+  uint32_t cnt = id_src->val & 0x1f;
+  rtlreg_t res = id_dest->val;
+
+  if (cnt != 0 && cnt < bits) {
+    res = (id_dest->val << cnt) | (id_src2->val >> (bits - cnt));
+  }
+
+  rtl_li(&t2, res);
+  operand_write(id_dest, &t2);
+  rtl_update_ZFSF(&t2, id_dest->width);
+
+  print_asm_template3(shld);
+}
+
 make_EHelper(rol) {
   uint32_t bits = id_dest->width * 8;
   uint32_t mask = (id_dest->width == 4 ? 31 : bits - 1);
