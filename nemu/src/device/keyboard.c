@@ -64,6 +64,13 @@ void i8042_io_handler(ioaddr_t addr, int len, bool is_write) {
 }
 
 void init_i8042() {
+  /* Numpad aliases: same actions as main keyboard for PAL menus/movement. */
+  keymap[SDL_SCANCODE_KP_ENTER] = _KEY_RETURN;
+  keymap[SDL_SCANCODE_KP_8]     = _KEY_UP;
+  keymap[SDL_SCANCODE_KP_2]     = _KEY_DOWN;
+  keymap[SDL_SCANCODE_KP_4]     = _KEY_LEFT;
+  keymap[SDL_SCANCODE_KP_6]     = _KEY_RIGHT;
+
   i8042_data_port_base = add_pio_map(I8042_DATA_PORT, 4, i8042_io_handler);
   i8042_status_port_base = add_pio_map(I8042_STATUS_PORT, 1, i8042_io_handler);
   i8042_status_port_base[0] = 0x0;
