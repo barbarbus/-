@@ -30,7 +30,7 @@ extern "C"
 #include "global.h"
 #include "uibattle.h"
 
-#define       BATTLE_FPS               25
+#define       BATTLE_FPS               40
 #define       BATTLE_FRAME_TIME        (1000 / BATTLE_FPS)
 
 typedef enum tagBATTLERESULT

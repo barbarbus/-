@@ -24,7 +24,7 @@
 
 #include "_common.h"
 
-#define    FPS             10
+#define    FPS             20
 #define    FRAME_TIME      (1000 / FPS)
 
 VOID

@@ -11,6 +11,7 @@ extern int _read(int, void *, size_t);
 
 static int has_nwm = 0;
 static uint32_t *canvas;
+static uint32_t *screen_buf;
 static FILE *fbdev, *evtdev;
 /* Raw fd for /dev/events. Going through fopen+getc has been unreliable
  * (newlib stdio buffer sizing depends on _fstat which we don't fill in,
@@ -46,6 +47,9 @@ int NDL_OpenDisplay(int w, int h) {
     assert(screen_h >= canvas_h);
     pad_x = (screen_w - canvas_w) / 2;
     pad_y = (screen_h - canvas_h) / 2;
+    screen_buf = malloc(sizeof(uint32_t) * screen_w * screen_h);
+    assert(screen_buf);
+    memset(screen_buf, 0, sizeof(uint32_t) * screen_w * screen_h);
     fbdev = fopen("/dev/fb", "w"); assert(fbdev);
     evtfd = _open("/dev/events", O_RDONLY, 0);
     assert(evtfd >= 0);
@@ -57,6 +61,11 @@ int NDL_OpenDisplay(int w, int h) {
 int NDL_CloseDisplay() {
   if (canvas) {
     free(canvas);
+    canvas = NULL;
+  }
+  if (screen_buf) {
+    free(screen_buf);
+    screen_buf = NULL;
   }
   return 0;
 }
@@ -85,9 +94,11 @@ int NDL_Render() {
     fflush(stdout);
   } else {
     for (int i = 0; i < canvas_h; i ++) {
-      fseek(fbdev, ((i + pad_y) * screen_w + pad_x) * sizeof(uint32_t), SEEK_SET);
-      fwrite(&canvas[i * canvas_w], sizeof(uint32_t), canvas_w, fbdev);
+      memcpy(&screen_buf[(i + pad_y) * screen_w + pad_x],
+          &canvas[i * canvas_w], sizeof(uint32_t) * canvas_w);
     }
+    fseek(fbdev, 0, SEEK_SET);
+    fwrite(screen_buf, sizeof(uint32_t), screen_w * screen_h, fbdev);
     fflush(fbdev);
   }
 }

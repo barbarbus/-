@@ -7,7 +7,31 @@ FLOAT F_mul_F(FLOAT a, FLOAT b) {
 }
 
 FLOAT F_div_F(FLOAT a, FLOAT b) {
-  return (FLOAT)(((int64_t)a << 16) / b);
+  /* Avoid int64 division: x86-nemu has no __divdi3 in the link set. */
+  int sign = 1;
+  if (a < 0) { a = -a; sign = -sign; }
+  if (b < 0) { b = -b; sign = -sign; }
+  if (b == 0) {
+    return 0;
+  }
+
+  uint32_t x = (uint32_t)a;
+  uint32_t y = (uint32_t)b;
+  uint32_t int_part = x / y;
+  uint32_t rem = x % y;
+  uint32_t frac_part = 0;
+
+  for (int i = 0; i < 16; i++) {
+    rem <<= 1;
+    if (rem >= y) {
+      rem -= y;
+      frac_part = (frac_part << 1) | 1;
+    } else {
+      frac_part <<= 1;
+    }
+  }
+
+  return sign * (FLOAT)((int_part << 16) + frac_part);
 }
 
 FLOAT f2F(float a) {

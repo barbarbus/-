@@ -6,9 +6,9 @@
 #include <signal.h>
 #include <SDL2/SDL.h>
 
-#define TIMER_HZ 100
+#define TIMER_HZ 200
 /* How often to push VMEM to the SDL window (per second). Higher = smoother. */
-#define VGA_HZ 100
+#define VGA_HZ 200
 
 static uint64_t jiffy = 0;
 static struct itimerval it;
