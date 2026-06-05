@@ -68,6 +68,10 @@ typedef union PageTableEntry {
 
 typedef PTE (*PT) [NR_PTE];
 
+/* Invalidate the whole address-translation cache (TLB). Must be called
+ * whenever the page mapping may change, e.g. on a write to CR3/CR0. */
+void tlb_flush(void);
+
 typedef union GateDescriptor {
   struct {
     uint32_t offset_15_0      : 16;

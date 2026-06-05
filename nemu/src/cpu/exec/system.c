@@ -22,6 +22,9 @@ make_EHelper(mov_r2cr) {
     default: panic("mov_r2cr: unsupported CR%d", id_dest->reg);
   }
 
+  /* The address mapping may change on a CR0(paging)/CR3 reload: drop the TLB. */
+  tlb_flush();
+
   print_asm("movl %%%s,%%cr%d", reg_name(id_src->reg, 4), id_dest->reg);
 }
 

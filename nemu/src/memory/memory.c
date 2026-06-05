@@ -37,14 +37,34 @@ void paddr_write(paddr_t addr, int len, uint32_t data) {
   memcpy(guest_to_host(addr), &data, len);
 }
 
-static inline paddr_t page_translate(vaddr_t addr, int len, bool is_write) {
-  /* i386 paging: 4KB pages, 2-level page tables */
+/* ---------------------------------------------------------------------------
+ * TLB: a direct-mapped cache of virtual-page -> physical-page translations.
+ * With paging enabled every guest memory access (fetch + operands) otherwise
+ * costs two page-table reads; this is the dominant hot spot found by perf.
+ * nanos-lite only ever ADDS mappings (loader / mm_brk) and never re-maps a
+ * live page, and CR3 is reloaded only on address-space switch, so flushing on
+ * CR3/CR0 writes keeps the cache coherent.
+ * ------------------------------------------------------------------------- */
+#define TLB_SIZE 4096                 /* power of two */
+#define TLB_MASK (TLB_SIZE - 1)
+
+typedef struct {
+  uint32_t vpn;     /* virtual page number (addr >> 12) */
+  uint32_t ppn;     /* physical page frame */
+  bool valid;
+} TLBEntry;
+
+static TLBEntry tlb[TLB_SIZE];
+
+void tlb_flush(void) {
+  for (int i = 0; i < TLB_SIZE; i++) {
+    tlb[i].valid = false;
+  }
+}
+
+static paddr_t page_walk(vaddr_t addr, bool is_write) {
   uint32_t dir = (addr >> 22) & 0x3ffu;
   uint32_t page = (addr >> 12) & 0x3ffu;
-  uint32_t off = addr & PAGE_MASK;
-
-  /* Cross-page access is not supported in this PA. */
-  assert(off + (uint32_t)len <= PAGE_SIZE);
 
   paddr_t pgdir_base = (paddr_t)(cpu.cr3.page_directory_base << 12);
   PDE pde;
@@ -66,8 +86,30 @@ static inline paddr_t page_translate(vaddr_t addr, int len, bool is_write) {
     }
   }
 
-  paddr_t pa = (paddr_t)(pte.page_frame << 12) | off;
-  return pa;
+  return (paddr_t)(pte.page_frame << 12);
+}
+
+static inline paddr_t page_translate(vaddr_t addr, int len, bool is_write) {
+  uint32_t off = addr & PAGE_MASK;
+
+  /* Cross-page access is not supported in this PA. */
+  assert(off + (uint32_t)len <= PAGE_SIZE);
+
+  uint32_t vpn = addr >> 12;
+  uint32_t idx = vpn & TLB_MASK;
+
+  if (tlb[idx].valid && tlb[idx].vpn == vpn) {
+    return (paddr_t)(tlb[idx].ppn << 12) | off;
+  }
+
+  paddr_t frame = page_walk(addr, is_write);
+  uint32_t ppn = frame >> 12;
+
+  tlb[idx].vpn = vpn;
+  tlb[idx].ppn = ppn;
+  tlb[idx].valid = true;
+
+  return frame | off;
 }
 
 uint32_t vaddr_read(vaddr_t addr, int len) {

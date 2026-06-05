@@ -21,7 +21,6 @@
 
 #include "main.h"
 #include "getopt.h"
-#include "FLOAT.h"   /* temporary: FLOAT_test() self-check */
 
 #ifdef PSP
 #include "main_PSP.h"
@@ -531,10 +530,6 @@ main_loop() {
 #endif
 
    UTIL_OpenLog();
-
-   /* PA5-1: verify the FLOAT (binary-scaling) implementation at startup.
-    * Remove this call before the final submission. */
-   FLOAT_test();
 
 #ifdef _WIN32
 #if SDL_MAJOR_VERSION == 1 && SDL_MINOR_VERSION <= 2
